@@ -1,2 +1,2 @@
-# My python projects
-these are my python projects.i am a beginner.the code may have any error don't mind it
+# My projects
+These are my projects.I am a beginner.The code may have any error you can help to correct it.
