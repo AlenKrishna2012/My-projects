@@ -1,0 +1,1400 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<!-- 01. THREE.JS IMPORT -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WATTWISE — Smart Building Energy Manager</title>
+
+<!-- 02. STYLING -->
+<style>
+:root{
+--bg:#101820;
+--panel:#1b2833;
+--panel2:#243441;
+--ink:#edf4f7;
+--muted:#9eb0bb;
+--accent:#65d6ad;
+--line:#354957
+}
+
+*{box-sizing:border-box}
+
+body{
+margin:0;
+background:var(--bg);
+color:var(--ink);
+font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif
+}
+
+header{
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:14px 18px;
+border-bottom:1px solid var(--line);
+gap:12px;
+flex-wrap:wrap
+}
+
+h1{font-size:20px;margin:0;letter-spacing:1px}
+h1 span{color:var(--accent)}
+
+.tag{
+font-size:10px;
+letter-spacing:1px;
+color:#ffdb8a;
+border:1px solid #806b3d;
+border-radius:20px;
+padding:4px 8px
+}
+
+main{
+display:grid;
+grid-template-columns:minmax(0,1fr) 330px;
+gap:14px;
+padding:14px;
+max-width:1500px;
+margin:auto
+}
+
+#view{
+position:relative;
+min-height:540px;
+height:calc(100vh - 115px);
+max-height:850px;
+background:#d8ded8;
+border:1px solid var(--line);
+border-radius:14px;
+overflow:hidden
+}
+
+#scene{
+width:100%;
+height:100%;
+display:block;
+touch-action:none
+}
+
+.hint{
+position:absolute;
+left:12px;
+bottom:12px;
+background:#101820d9;
+color:#dce8e8;
+padding:8px 11px;
+border-radius:8px;
+font-size:12px;
+pointer-events:none
+}
+
+.side{
+display:flex;
+flex-direction:column;
+gap:12px;
+min-width:0
+}
+
+.panel{
+background:var(--panel);
+border:1px solid var(--line);
+border-radius:12px;
+padding:13px
+}
+
+.metrics{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px
+}
+
+.metric{
+background:var(--panel2);
+border-radius:9px;
+padding:10px
+}
+
+.metric small{
+display:block;
+color:var(--muted);
+font-size:11px
+}
+
+.metric strong{
+font-size:21px;
+color:var(--accent)
+}
+
+h2{font-size:14px;margin:0 0 10px}
+.muted{color:var(--muted)}
+
+label{
+display:block;
+color:var(--muted);
+font-size:12px;
+margin:9px 0 4px
+}
+
+input,select,button{font:inherit}
+
+input,select{
+width:100%;
+background:#111c25;
+color:var(--ink);
+border:1px solid var(--line);
+border-radius:7px;
+padding:8px
+}
+
+button{
+border:0;
+border-radius:7px;
+padding:9px 11px;
+background:var(--accent);
+color:#10221c;
+font-weight:700;
+cursor:pointer
+}
+
+button.secondary{
+background:#344957;
+color:var(--ink)
+}
+
+button.danger{
+background:#743c42;
+color:#fff
+}
+
+button:active{transform:scale(.98)}
+
+.row{
+display:flex;
+gap:7px;
+align-items:center
+}
+
+.row>*{flex:1;min-width:0}
+
+.device-list{
+display:flex;
+flex-direction:column;
+gap:7px;
+max-height:230px;
+overflow:auto
+}
+
+.device{
+display:flex;
+align-items:center;
+gap:8px;
+background:var(--panel2);
+padding:8px;
+border-radius:8px
+}
+
+.device .name{flex:1;min-width:0}
+.device small{display:block;color:var(--muted)}
+.device button{padding:6px 9px;font-size:12px}
+.device button.off{background:#465661;color:#fff}
+
+#selected{
+font-size:12px;
+color:var(--muted);
+margin-top:8px
+}
+
+.footer{
+font-size:11px;
+color:var(--muted);
+text-align:center;
+padding:0 14px 14px
+}
+
+@media(max-width:900px){
+main{grid-template-columns:1fr}
+#view{height:58vh;min-height:360px}
+.side{display:grid;grid-template-columns:1fr 1fr}
+.side .wide{grid-column:1/-1}
+}
+
+@media(max-width:560px){
+main{padding:8px;gap:8px}
+.side{display:flex}
+header{padding:11px}
+#view{height:52vh;min-height:320px}
+}
+</style>
+</head>
+
+<body>
+
+<!-- 03. HEADER -->
+<header>
+<h1>⚡ WATT<span>WISE</span></h1>
+<span class="tag">JUST A PROTOTYPE · SIMULATED DATA</span>
+</header>
+
+<!-- 04. MAIN LAYOUT -->
+<main>
+
+<section id="view">
+<canvas id="scene"></canvas>
+<div class="hint">
+3D apartment · Tap appliances to switch ON/OFF · Drag objects to move
+</div>
+</section>
+
+<aside class="side">
+
+<!-- ENERGY METRICS -->
+<section class="panel">
+<h2>Live energy</h2>
+
+<div class="metrics">
+<div class="metric">
+<small>LIVE POWER</small>
+<strong id="power">0 W</strong>
+</div>
+
+<div class="metric">
+<small>ENERGY USED</small>
+<strong id="energy">0.000 kWh</strong>
+</div>
+
+<div class="metric">
+<small>ESTIMATED COST</small>
+<strong id="cost">₹0.00</strong>
+</div>
+
+<div class="metric">
+<small>ACTIVE DEVICES</small>
+<strong id="active">0</strong>
+</div>
+</div>
+
+<label>Electricity price (₹ / kWh)</label>
+<input id="tariff" type="number" min="0" step="0.01" value="8">
+
+<div class="row" style="margin-top:9px">
+<button class="secondary" id="resetUsage">Reset calculations</button>
+<button class="danger" id="resetBuilding">Reset building</button>
+</div>
+</section>
+
+<!-- DEVICE MANAGER -->
+<section class="panel">
+<h2>Device manager</h2>
+
+<div class="device-list" id="devices"></div>
+
+<label>Add a device</label>
+
+<div class="row">
+<select id="newType">
+<option>Ceiling light</option>
+<option>Wall light</option>
+<option>Fan</option>
+<option>Television</option>
+<option>Computer</option>
+<option>Refrigerator</option>
+<option>Air conditioner</option>
+</select>
+
+<button id="addDevice">＋ Add</button>
+</div>
+
+<div id="selected">
+Select a device in the apartment or list to edit its settings.
+</div>
+</section>
+
+<!-- DEVICE EDITOR -->
+<section class="panel wide" id="editor" hidden>
+<h2 id="editTitle">Device settings</h2>
+
+<label>Device name</label>
+<input id="editName" maxlength="35">
+
+<div class="row">
+<div>
+<label>Power while ON (W)</label>
+<input id="editPower" type="number" min="0" max="10000">
+</div>
+
+<div>
+<label>Standby power (W)</label>
+<input id="editStandby" type="number" min="0" max="1000">
+</div>
+</div>
+
+<label>Operating mode</label>
+<select id="editMode">
+<option value="constant">Constant power</option>
+<option value="variable">Variable (slider controlled)</option>
+<option value="cycle">Automatic cycle</option>
+</select>
+
+<label>Variable level <span id="levelText">100%</span></label>
+<input id="editLevel" type="range" min="0" max="100" value="100">
+
+<div class="row" style="margin-top:9px">
+<button id="saveDevice">Save settings</button>
+<button class="danger" id="deleteDevice">Delete device</button>
+</div>
+</section>
+
+<!-- SIMULATION CLOCK -->
+<section class="panel wide">
+<h2>Simulation clock</h2>
+
+<div class="row">
+<div>
+<label>Speed</label>
+<select id="speed">
+<option value="1">1× real time</option>
+<option value="60">60×</option>
+<option value="600">600×</option>
+<option value="3600">3600×</option>
+</select>
+</div>
+
+<div>
+<label>Current time</label>
+<input id="clock" readonly>
+</div>
+</div>
+
+<p class="muted" style="font-size:11px;margin-bottom:0">
+Energy accumulates using elapsed time. This is a software simulation, not a physical meter.
+</p>
+</section>
+
+</aside>
+</main>
+
+<div class="footer">
+WATTWISE prototype · All readings are simulated and are not measurements of real electrical appliances.
+</div>
+
+<!-- 05. THREE.JS AND SIMULATION -->
+<script type="module">
+import * as THREE from 'three';
+
+/* 06. DEFAULT DATA */
+
+const DEFAULT={
+tariff:8,
+energyWh:0,
+lastUpdate:Date.now(),
+layout:{},
+
+devices:[
+{id:'d1',name:'Living room light',type:'Ceiling light',room:'living',x:-3,z:-1.5,power:18,standby:0,mode:'constant',level:100,on:false},
+{id:'d2',name:'Bedroom light',type:'Ceiling light',room:'bedroom',x:3.1,z:-1.4,power:12,standby:0,mode:'constant',level:100,on:false},
+{id:'d3',name:'Kitchen light',type:'Wall light',room:'kitchen',x:-3,z:3,power:9,standby:0,mode:'constant',level:100,on:false},
+{id:'d4',name:'Ceiling fan',type:'Fan',room:'living',x:-1.4,z:-1.5,power:70,standby:1,mode:'variable',level:65,on:false},
+{id:'d5',name:'Television',type:'Television',room:'living',x:-2.8,z:.5,power:95,standby:1,mode:'constant',level:100,on:false},
+{id:'d6',name:'Refrigerator',type:'Refrigerator',room:'kitchen',x:-4,z:3.7,power:160,standby:3,mode:'cycle',level:100,on:false},
+{id:'d7',name:'Air conditioner',type:'Air conditioner',room:'bedroom',x:3.2,y:1.0,z:-4.3,power:900,standby:4,mode:'variable',level:45,on:false},
+{id:'d8',name:'Computer',type:'Computer',room:'living',x:-5.7,z:-3.9,power:150,standby:2,mode:'constant',level:100,on:false}
+]
+};
+
+/* 07. STORAGE */
+
+const clone=x=>JSON.parse(JSON.stringify(x));
+
+let data;
+
+try{
+data=JSON.parse(localStorage.getItem('wattwise-v1'))||clone(DEFAULT);
+}catch{
+data=clone(DEFAULT);
+}
+
+data.devices||=[];
+data.tariff??=8;
+data.energyWh??=0;
+data.lastUpdate??=Date.now();
+data.layout||={};
+
+let selectedId=null;
+let simTime=Date.now();
+let lastFrame=performance.now();
+let speed=1;
+
+const $=id=>document.getElementById(id);
+
+/* 08. SAVE */
+
+const save=()=>{
+data.lastUpdate=Date.now();
+try{
+localStorage.setItem('wattwise-v1',JSON.stringify(data));
+}catch(e){
+console.warn('Storage unavailable',e);
+}
+};
+
+/* 09. POWER CALCULATION */
+
+function watts(d,t=simTime){
+
+if(!d.on)return Math.max(0,Number(d.standby)||0);
+
+let p=Math.max(0,Number(d.power)||0);
+
+if(d.mode==='variable'){
+p*=Math.max(0,Math.min(100,d.level))/100;
+}
+
+if(d.mode==='cycle'){
+const phase=Math.floor(t/1000)%720;
+if(phase>=480)return Math.max(0,Number(d.standby)||0);
+}
+
+return p;
+}
+
+/* 10. ENERGY CALCULATION */
+
+function integrate(ms){
+
+if(ms<=0)return;
+
+const steps=Math.min(120,Math.max(1,Math.ceil(ms/1000)));
+const dt=ms/steps;
+
+for(let i=0;i<steps;i++){
+let total=0;
+
+for(const d of data.devices){
+total+=watts(d,simTime+i*dt);
+}
+
+data.energyWh+=total*dt/3600000;
+}
+
+simTime+=ms;
+}
+
+function totalPower(){
+return data.devices.reduce((s,d)=>s+watts(d),0);
+}
+
+/* 11. DASHBOARD */
+
+function updateUI(){
+
+$('power').textContent=totalPower().toFixed(1)+' W';
+$('energy').textContent=(data.energyWh/1000).toFixed(4)+' kWh';
+$('cost').textContent='₹'+(data.energyWh/1000*Number(data.tariff||0)).toFixed(2);
+$('active').textContent=data.devices.filter(d=>d.on).length;
+$('tariff').value=data.tariff;
+$('clock').value=new Date(simTime).toLocaleString();
+
+$('devices').innerHTML='';
+
+for(const d of data.devices){
+
+const el=document.createElement('div');
+el.className='device';
+
+const label=document.createElement('div');
+label.className='name';
+
+const b=document.createElement('b');
+b.textContent=d.name;
+
+const sm=document.createElement('small');
+sm.textContent=`${watts(d).toFixed(1)} W · ${d.room}`;
+
+label.append(b,sm);
+
+const toggle=document.createElement('button');
+toggle.className=d.on?'':'off';
+toggle.textContent=d.on?'ON':'OFF';
+toggle.onclick=()=>toggleDevice(d);
+
+const edit=document.createElement('button');
+edit.className='secondary';
+edit.textContent='Edit';
+edit.onclick=()=>selectDevice(d.id);
+
+el.append(label,toggle,edit);
+$('devices').append(el);
+}
+}
+
+/* 12. DEVICE EDITOR */
+
+function selectDevice(id){
+
+selectedId=id;
+const d=data.devices.find(x=>x.id===id);
+if(!d)return;
+
+$('editor').hidden=false;
+$('selected').textContent='Selected: '+d.name;
+$('editTitle').textContent=d.name;
+$('editName').value=d.name;
+$('editPower').value=d.power;
+$('editStandby').value=d.standby;
+$('editMode').value=d.mode;
+$('editLevel').value=d.level;
+$('levelText').textContent=d.level+'%';
+}
+
+$('editLevel').oninput=e=>{
+$('levelText').textContent=e.target.value+'%';
+};
+
+$('saveDevice').onclick=()=>{
+
+const d=data.devices.find(x=>x.id===selectedId);
+if(!d)return;
+
+d.name=$('editName').value.trim()||d.name;
+d.power=Math.max(0,Number($('editPower').value)||0);
+d.standby=Math.max(0,Number($('editStandby').value)||0);
+d.mode=$('editMode').value;
+d.level=Number($('editLevel').value);
+
+updateDeviceLabels();
+save();
+updateUI();
+selectDevice(d.id);
+};
+
+$('deleteDevice').onclick=()=>{
+
+if(!selectedId||!confirm('Delete this device?'))return;
+
+data.devices=data.devices.filter(d=>d.id!==selectedId);
+selectedId=null;
+$('editor').hidden=true;
+
+save();
+updateUI();
+rebuildDeviceMeshes();
+};
+
+/* 13. ADD DEVICE */
+
+$('addDevice').onclick=()=>{
+
+const type=$('newType').value;
+
+const room=type==='Wall light'||type==='Refrigerator'?'kitchen':'living';
+
+const pos=room==='kitchen'?{x:-4,z:2.6}:{x:-1,z:-2};
+
+const defaults={
+'Air conditioner':900,
+'Fan':70,
+'Ceiling light':15,
+'Wall light':9,
+'Computer':150,
+'Television':95,
+'Refrigerator':160
+};
+
+const d={
+id:'d'+Date.now(),
+name:type,
+type,
+room,
+...pos,
+power:defaults[type]||100,
+standby:0,
+mode:type==='Refrigerator'?'cycle':'constant',
+level:100,
+on:false
+};
+
+data.devices.push(d);
+save();
+updateUI();
+rebuildDeviceMeshes();
+selectDevice(d.id);
+};
+
+/* 14. RESET AND TARIFF */
+
+$('tariff').onchange=e=>{
+data.tariff=Math.max(0,Number(e.target.value)||0);
+save();
+updateUI();
+};
+
+$('resetUsage').onclick=()=>{
+
+if(!confirm('Reset accumulated energy and cost to zero?'))return;
+
+data.energyWh=0;
+simTime=Date.now();
+save();
+updateUI();
+};
+
+$('resetBuilding').onclick=()=>{
+
+if(!confirm('Restore the default apartment and erase custom changes?'))return;
+
+data=clone(DEFAULT);
+simTime=Date.now();
+selectedId=null;
+$('editor').hidden=true;
+
+rebuildBuilding();
+save();
+updateUI();
+};
+
+$('speed').onchange=e=>{
+speed=Number(e.target.value);
+};
+
+/* 15. THREE.JS SCENE */
+
+const canvas=$('scene');
+
+const renderer=new THREE.WebGLRenderer({
+canvas,
+antialias:true
+});
+
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#d8ded8');
+
+const camera=new THREE.OrthographicCamera(-8,8,6,-6,.1,100);
+camera.position.set(-8,18,12.8);
+camera.lookAt(0,0,0);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x778477,2));
+
+const sun=new THREE.DirectionalLight(0xffffff,2.2);
+sun.position.set(-5,15,11);
+sun.castShadow=true;
+scene.add(sun);
+
+const building=new THREE.Group();
+scene.add(building);
+
+const deviceGroup=new THREE.Group();
+scene.add(deviceGroup);
+
+const movableObjects=new Map();
+const meshes=new Map();
+
+/* 16. BOX HELPER */
+
+function box(parent,w,h,d,x,y,z,color){
+
+const mesh=new THREE.Mesh(
+new THREE.BoxGeometry(w,h,d),
+new THREE.MeshStandardMaterial({
+color,
+roughness:.85
+})
+);
+
+mesh.position.set(x,y,z);
+mesh.castShadow=true;
+mesh.receiveShadow=true;
+
+parent.add(mesh);
+return mesh;
+}
+
+/* 17. MOVABLE OBJECTS */
+
+function makeMovable(id,x,z){
+
+const g=new THREE.Group();
+
+g.position.set(x,0,z);
+g.userData.draggable=true;
+g.userData.objectId=id;
+
+const saved=data.layout[id];
+
+if(saved){
+g.position.x=saved.x;
+g.position.z=saved.z;
+}
+
+building.add(g);
+movableObjects.set(id,g);
+
+return g;
+}
+
+/* 18. FLOORS */
+
+function makeRoom(x,z,w,d,color){
+box(building,w,.12,d,x,-.08,z,color);
+}
+
+/* 19. WALLS */
+
+function makeWalls(){
+
+const wall=0xf2eee3;
+const H=2.35;
+const T=.22;
+
+const specs=[
+['wall_north',0,-5,14,H,T],
+['wall_south',0,5,14,H,T],
+['wall_west',-7,0,T,H,10.2],
+['wall_east',7,0,T,H,10.2],
+['wall_mid_n1',0,-3.1,T,H,3.7],
+['wall_mid_n2',0,2.5,T,H,5],
+['wall_mid_e',2.8,0,5.8,H,T],
+['wall_kitchen',-5.85,1,2.3,H,T]
+];
+
+for(const [id,x,z,w,h,d] of specs){
+
+const g=makeMovable(id,x,z);
+box(g,w,h,d,0,h/2,0,wall);
+}
+}
+
+/* 20. FURNITURE */
+
+function furniture(){
+
+let g;
+
+/* SOFA */
+
+g=makeMovable('sofa',-2.7,-2.9);
+box(g,2.5,.38,1,0,.22,0,0x718d85);
+box(g,2.5,1.3,.22,0,.55,-.4,0x58766e);
+box(g,.22,.65,1,-1.15,.48,0,0x58766e);
+box(g,.22,.65,1,1.15,.48,0,0x58766e);
+
+/* COFFEE TABLE */
+
+g=makeMovable('coffee_table',-2.6,-1.7);
+box(g,1.5,.18,.8,0,.55,0.1,0x9b7556);
+
+/* BED */
+
+g=makeMovable('bed',2.7,-2.5);
+box(g,2.6,.28,3.1,0,.22,0,0x9a806f);
+box(g,2.4,.25,2.7,0,.48,0,0xd5d6d0);
+box(g,2.6,.65,.18,0,.55,-1.45,0x8b735f);
+
+/* WARDROBE */
+
+g=makeMovable('wardrobe',5.65,-4.1);
+box(g,2.2,1.5,.65,0,.75,0,0x8b735f);
+box(g,.04,1.25,.04,0,.75,.34,0x665345);
+
+/* KITCHEN COUNTER */
+
+g=makeMovable('kitchen_counter',-5.4,4.15);
+box(g,.67,.85,2,-0.,.43,-1.5,0x8b9b91);
+
+
+/* DINING TABLE */
+
+g=makeMovable('dining_table',-2.5,2.5);
+box(g,1.5,.18,1,0,.55,0,0x98795c);
+
+/* CHAIRS */
+
+for(const [id,x,z] of [
+['chair1',-3.5,2.5],
+['chair2',-1.5,2.5],
+['chair3',-2.5,1.7],
+['chair4',-2.5,3.3]
+]){
+
+g=makeMovable(id,x,z);
+box(g,.48,.18,.48,0,.28,0,0x647d79);
+box(g,.48,.4,.1,0,.48,.2,0x647d79);
+}
+
+/* BATHTUB */
+
+g=makeMovable('bathtub',4.8,3.7);
+box(g,2.9,.35,1.1,-1.6,.18,-1.7,0xf0f4ed);
+}
+
+/* 21. DEVICE LABEL */
+
+function createDeviceLabel(d){
+
+const c=document.createElement('canvas');
+c.width=512;
+c.height=128;
+
+const ctx=c.getContext('2d');
+const texture=new THREE.CanvasTexture(c);
+
+const label=new THREE.Sprite(
+new THREE.SpriteMaterial({
+map:texture,
+transparent:true,
+depthTest:false
+})
+);
+
+label.scale.set(2.2,.55,1);
+label.position.set(0,2.8,0);
+label.userData.isDeviceLabel=true;
+
+function update(){
+
+ctx.clearRect(0,0,512,128);
+
+ctx.fillStyle=d.on?'#16a34a':'#64748b';
+
+ctx.beginPath();
+ctx.roundRect(8,8,496,112,24);
+ctx.fill();
+
+ctx.fillStyle='#ffffff';
+ctx.font='bold 34px Arial';
+ctx.textAlign='center';
+ctx.textBaseline='middle';
+
+ctx.fillText(`${d.name} | ${d.on?'ON':'OFF'}`,256,64);
+
+texture.needsUpdate=true;
+}
+
+update();
+label.userData.updateLabel=update;
+
+return label;
+}
+
+/* 22. DEVICE MODELS */
+
+function deviceMesh(d){
+
+const g=new THREE.Group();
+
+g.position.set(d.x,d.y||0,d.z);
+
+g.userData.id=d.id;
+g.userData.draggable=true;
+g.userData.objectId='device:'+d.id;
+
+g.add(createDeviceLabel(d));
+
+/* LIGHTS */
+
+if(d.type.toLowerCase().includes('light')){
+
+const base=new THREE.Mesh(
+new THREE.CylinderGeometry(.18,.18,.1,20),
+new THREE.MeshStandardMaterial({color:0x66727a})
+);
+
+base.position.y=2.12;
+g.add(base);
+
+const bulb=new THREE.Mesh(
+new THREE.SphereGeometry(.16,16,12),
+new THREE.MeshStandardMaterial({
+color:0xffdf86,
+emissive:0xffc85b,
+emissiveIntensity:d.on?5.5:.02
+})
+);
+
+bulb.position.y=2.02;
+g.add(bulb);
+
+const glow=new THREE.PointLight(0xffd58a,d.on?22:0,11);
+glow.position.y=2;
+g.add(glow);
+
+g.userData.glow=glow;
+g.userData.bulb=bulb;
+
+/* FAN */
+
+}else if(d.type==='Fan'){
+
+box(g,.08,.65,.08,0,1.72,0,0x66747b);
+
+const rotor=new THREE.Group();
+rotor.position.y=1.35;
+g.add(rotor);
+g.userData.rotor=rotor;
+
+const hub=new THREE.Mesh(
+new THREE.CylinderGeometry(.2,.2,.13,16),
+new THREE.MeshStandardMaterial({color:0x596b73})
+);
+
+rotor.add(hub);
+
+for(let a=0;a<4;a++){
+
+const blade=box(rotor,.18,.07,1.05,0,0,0,0x87999b);
+blade.rotation.y=a*Math.PI/2;
+blade.position.x=Math.sin(a*Math.PI/2)*.48;
+blade.position.z=Math.cos(a*Math.PI/2)*.48;
+}
+
+/* TELEVISION */
+
+}else if(d.type==='Television'){
+
+/* Screen frame */
+box(g,1.6,1,.12,0,1,0,0x263640);
+
+/* Screen */
+const screen=new THREE.Mesh(
+new THREE.BoxGeometry(1.48,.88,.025),
+new THREE.MeshStandardMaterial({
+color:d.on?0x87cfff:0x263640,
+emissive:d.on?0x17628c:0x000000,
+emissiveIntensity:d.on?1.5:0
+})
+);
+
+screen.position.set(0,1,0.06);
+g.add(screen);
+g.userData.screen=screen;
+
+/* Stand */
+box(g,1.5,.12,.45,0,.35,-0.10,0x66727a);
+
+/* COMPUTER */
+
+}else if(d.type==='Computer'){
+
+/* Monitor body */
+box(g,1.2,.85,.12,0,1,0,0x303b45);
+
+/* Monitor screen */
+const screen=new THREE.Mesh(
+new THREE.BoxGeometry(1.08,.7,.025),
+new THREE.MeshStandardMaterial({
+color:d.on?0x87cfff:0x263640,
+emissive:d.on?0x17628c:0x000000,
+emissiveIntensity:d.on?1.2:0
+})
+);
+
+screen.position.set(0,1,.07);
+g.add(screen);
+g.userData.screen=screen;
+
+/* Monitor stand */
+box(g,.15,.3,.15,0,.45,0,0x66727a);
+
+/* Monitor base */
+box(g,.5,.08,.35,0,.3,.05,0x66727a);
+
+/* CPU */
+box(g,.4,1.45,.5,1.1,.45,-0.1,0x38454f);
+
+/* Keyboard */
+box(g,.9,.08,.3,0,.12,.5,0x45535c);
+
+/* Mouse */
+box(g,.18,.1,.25,.65,.12,.5,0x58666e);
+
+/* REFRIGERATOR */
+
+}else if(d.type==='Refrigerator'){
+
+box(g,.8,1.8,.72,0,.9,0,0xb6b9b0);
+box(g,.05,.7,.04,0.2,1.5,0.49,0x777d78);
+
+/* OTHER DEVICES */
+
+}else{
+
+box(
+g,
+d.type==='Air conditioner'?1.4:1,
+d.type==='Air conditioner'?.45:.8,
+d.type==='Air conditioner'?.35:.7,
+0,
+d.type==='Air conditioner'?1.6:.4,
+0,
+0xe9eee9
+);
+}
+
+deviceGroup.add(g);
+meshes.set(d.id,g);
+
+return g;
+}
+
+/* 23. REBUILD DEVICES */
+
+function rebuildDeviceMeshes(){
+
+deviceGroup.clear();
+meshes.clear();
+
+for(const d of data.devices){
+deviceMesh(d);
+}
+}
+
+/* 24. UPDATE LABELS AND SCREEN */
+
+function updateDeviceLabels(){
+
+for(const d of data.devices){
+
+const mesh=meshes.get(d.id);
+if(!mesh)continue;
+
+mesh.traverse(obj=>{
+
+if(obj.userData.isDeviceLabel){
+obj.userData.updateLabel();
+}
+
+});
+}
+}
+
+function updateScreenVisuals(d,g){
+
+if(!g.userData.screen)return;
+
+const mat=g.userData.screen.material;
+
+mat.color.set(d.on?0x87cfff:0x263640);
+mat.emissive.set(d.on?0x17628c:0x000000);
+mat.emissiveIntensity=d.on?1.5:0;
+}
+
+/* 25. BUILD APARTMENT */
+
+function rebuildBuilding(){
+
+building.clear();
+deviceGroup.clear();
+
+movableObjects.clear();
+meshes.clear();
+
+makeRoom(-3.5,0,6.8,9.7,0xcbbda7);
+makeRoom(3.5,-2.5,6.8,4.7,0xaebfc1);
+makeRoom(3.5,2.5,6.8,4.7,0xb6c9c7);
+makeRoom(-5.1,3,3.6,3.7,0xc7c9b8);
+
+makeWalls();
+furniture();
+rebuildDeviceMeshes();
+}
+
+/* INITIAL BUILD */
+
+rebuildBuilding();
+
+/* 26. DRAGGING */
+
+const raycaster=new THREE.Raycaster();
+const pointer=new THREE.Vector2();
+
+const dragPlane=new THREE.Plane(
+new THREE.Vector3(0,1,0),0
+);
+
+const dragPoint=new THREE.Vector3();
+
+let dragging=null;
+let dragOffset=new THREE.Vector3();
+let pressedRoot=null;
+let pressX=0;
+let pressY=0;
+
+function pointerRay(e){
+
+const r=canvas.getBoundingClientRect();
+
+pointer.x=(e.clientX-r.left)/r.width*2-1;
+pointer.y=-(e.clientY-r.top)/r.height*2+1;
+
+raycaster.setFromCamera(pointer,camera);
+}
+
+canvas.addEventListener('pointerdown',e=>{
+
+pointerRay(e);
+
+const hits=raycaster.intersectObjects([building,deviceGroup],true);
+if(!hits.length)return;
+
+let root=hits[0].object;
+
+while(root.parent&&!root.userData.draggable){
+root=root.parent;
+}
+
+if(!root.userData.draggable)return;
+
+pressedRoot=root;
+pressX=e.clientX;
+pressY=e.clientY;
+dragging=null;
+
+if(!raycaster.ray.intersectPlane(dragPlane,dragPoint)){
+pressedRoot=null;
+return;
+}
+
+dragOffset.copy(root.position).sub(dragPoint);
+
+canvas.setPointerCapture(e.pointerId);
+
+if(root.userData.id){
+
+const d=data.devices.find(x=>x.id===root.userData.id);
+if(d)selectDevice(d.id);
+}
+
+e.preventDefault();
+});
+
+canvas.addEventListener('pointermove',e=>{
+
+if(!pressedRoot){
+
+pointerRay(e);
+const hits=raycaster.intersectObjects([building,deviceGroup],true);
+canvas.style.cursor=hits.length?'grab':'default';
+return;
+}
+
+if(!dragging&&Math.hypot(e.clientX-pressX,e.clientY-pressY)>7){
+dragging=pressedRoot;
+canvas.style.cursor='grabbing';
+}
+
+if(!dragging)return;
+
+pointerRay(e);
+
+if(!raycaster.ray.intersectPlane(dragPlane,dragPoint))return;
+
+dragging.position.x=dragPoint.x+dragOffset.x;
+dragging.position.z=dragPoint.z+dragOffset.z;
+
+const id=dragging.userData.id;
+
+if(id){
+
+const d=data.devices.find(x=>x.id===id);
+
+if(d){
+d.x=dragging.position.x;
+d.z=dragging.position.z;
+d.y=dragging.position.y;
+}
+}
+});
+
+function finishDrag(){
+
+if(!pressedRoot)return;
+
+if(dragging){
+
+const id=dragging.userData.id;
+
+if(id){
+
+const d=data.devices.find(x=>x.id===id);
+
+if(d){
+d.x=dragging.position.x;
+d.y=dragging.position.y;
+d.z=dragging.position.z;
+}
+
+}else{
+
+data.layout[dragging.userData.objectId]={
+x:dragging.position.x,
+z:dragging.position.z
+};
+}
+
+save();
+
+}else if(pressedRoot.userData.id){
+
+const d=data.devices.find(x=>x.id===pressedRoot.userData.id);
+
+if(d)toggleDevice(d);
+}
+
+dragging=null;
+pressedRoot=null;
+canvas.style.cursor='default';
+}
+
+canvas.addEventListener('pointerup',finishDrag);
+canvas.addEventListener('pointercancel',finishDrag);
+
+/* 27. ON/OFF */
+
+function toggleDevice(d){
+
+d.on=!d.on;
+
+const mesh=meshes.get(d.id);
+
+if(mesh){
+
+mesh.traverse(obj=>{
+
+if(obj.userData.isDeviceLabel){
+obj.userData.updateLabel();
+}
+
+});
+updateScreenVisuals(d,mesh);
+}
+
+save();
+updateUI();
+}
+
+/* 28. ANIMATION */
+
+function refreshDeviceVisuals(dt){
+
+for(const d of data.devices){
+
+const g=meshes.get(d.id);
+if(!g)continue;
+
+if(g.userData.glow){
+g.userData.glow.intensity=d.on?22:0;
+}
+
+if(g.userData.bulb){
+g.userData.bulb.material.emissiveIntensity=d.on?5.5:.02;
+}
+
+if(g.userData.rotor){
+
+const level=d.mode==='variable'?
+Math.max(0,Math.min(100,Number(d.level)||0)):100;
+
+g.userData.rotor.rotation.y+=
+d.on?(.25+level/100*15)*dt:0;
+}
+}
+}
+
+/* 29. RESIZE */
+
+function resize(){
+
+const w=canvas.clientWidth;
+const h=canvas.clientHeight;
+
+if(!w||!h)return;
+
+renderer.setSize(w,h,false);
+
+const aspect=w/h;
+const frustum=8.8;
+
+camera.left=-frustum*aspect;
+camera.right=frustum*aspect;
+camera.top=frustum;
+camera.bottom=-frustum;
+
+camera.updateProjectionMatrix();
+}
+
+window.addEventListener('resize',resize);
+resize();
+
+/* 30. MAIN LOOP */
+
+function animate(now){
+
+requestAnimationFrame(animate);
+
+const delta=Math.min(5000,now-lastFrame);
+lastFrame=now;
+
+integrate(delta*speed);
+refreshDeviceVisuals(delta/1000);
+
+renderer.render(scene,camera);
+
+if(Math.floor(now/500)!==Math.floor((now-delta)/500)){
+updateUI();
+save();
+}
+}
+
+/* 31. STARTUP */
+
+const startup=Date.now();
+
+simTime=Number(data.lastUpdate)||startup;
+integrate(Math.max(0,startup-simTime));
+simTime=startup;
+lastFrame=performance.now();
+
+save();
+updateUI();
+
+requestAnimationFrame(animate);
+
+/* RESUME */
+
+document.addEventListener('visibilitychange',()=>{
+
+if(!document.hidden){
+
+const now=Date.now();
+const elapsed=Math.max(0,now-(data.lastUpdate||now));
+
+integrate(elapsed);
+simTime=now;
+lastFrame=performance.now();
+
+updateUI();
+save();
+}
+});
+
+/* SAVE ON EXIT */
+
+window.addEventListener('beforeunload',save);
+
+</script>
+</body>
+</html>
