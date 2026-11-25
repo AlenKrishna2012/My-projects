@@ -1,0 +1,1489 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SOLAR SCOPE 2.0</title>
+
+<style>
+:root{
+ --bg:#050914;
+ --panel:#101b2d;
+ --panel2:#0a1424;
+ --line:#293b55;
+ --text:#eaf2ff;
+ --muted:#91a5c1;
+ --cyan:#54d9ee;
+ --yellow:#ffd36c;
+}
+*{box-sizing:border-box}
+body{
+ margin:0;background:var(--bg);color:var(--text);
+ font:14px Arial,sans-serif;
+}
+header{
+ padding:15px 20px;background:#0b1525;
+ border-bottom:1px solid var(--line);
+ display:flex;justify-content:space-between;align-items:center;
+}
+.brand{font-size:20px;font-weight:bold;letter-spacing:2px}
+.brand span{color:var(--cyan)}
+main{max-width:1600px;margin:auto;padding:12px}
+button,input,select{
+ background:#172740;color:white;border:1px solid #344967;
+ border-radius:7px;padding:9px;font:inherit;
+}
+button{cursor:pointer}
+button:hover,.active{border-color:var(--cyan);color:var(--cyan)}
+input[type=range]{padding:0;accent-color:var(--cyan)}
+input[type=checkbox]{accent-color:var(--cyan)}
+label{font-size:12px;color:var(--muted)}
+.toolbar{
+ display:flex;gap:8px;flex-wrap:wrap;align-items:center;
+ background:var(--panel);border:1px solid var(--line);
+ border-radius:10px;padding:12px;margin-bottom:12px;
+}
+.workspace{
+ display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;
+}
+.panel{
+ background:var(--panel);border:1px solid var(--line);
+ border-radius:10px;padding:13px;
+}
+.canvasbox{
+ position:relative;border:1px solid var(--line);
+ border-radius:10px;overflow:hidden;background:#030711;
+}
+canvas{
+ display:block;width:100%;height:64vh;min-height:380px;
+ touch-action:none;
+}
+.overlay{position:absolute;top:12px;left:14px;pointer-events:none}
+.overlay b{font-size:12px;letter-spacing:1px}
+.overlay small{display:block;color:var(--muted);margin-top:5px}
+.side{display:flex;flex-direction:column;gap:12px}
+h2{font-size:12px;letter-spacing:1px;color:#c6d9f2;margin:0 0 12px}
+h1{font-size:22px;margin:0}
+.muted{color:var(--muted);font-size:12px;line-height:1.5}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button{flex:1;min-width:75px}
+.tabcontent{display:none}
+.tabcontent.active{display:block;color:var(--text)}
+.objectgrid{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;
+}
+.objectgrid button{text-align:left;font-size:12px;overflow:hidden}
+.dot{
+ display:inline-block;width:9px;height:9px;
+ border-radius:50%;margin-right:7px;
+}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.stat{
+ background:var(--panel2);padding:9px;
+ border:1px solid #253750;border-radius:8px;min-width:0;
+}
+.stat small{display:block;color:var(--muted);font-size:10px}
+.stat b{display:block;margin-top:5px;font-size:13px;overflow-wrap:anywhere}
+.event{
+ border-left:2px solid var(--cyan);
+ padding:8px 10px;margin:7px 0;
+ background:var(--panel2);border-radius:0 7px 7px 0;
+}
+.event small{color:var(--muted)}
+.event button{float:right;padding:5px 8px;font-size:11px}
+.note{font-size:11px;color:var(--muted);line-height:1.55}
+.status{font-size:11px;color:#70e0ad}
+hr{border:0;border-top:1px solid var(--line);margin:12px 0}
+@media(max-width:900px){
+ .workspace{grid-template-columns:1fr}
+ .side{display:grid;grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+ main{padding:7px}
+ .side{display:flex}
+ canvas{height:52vh;min-height:340px}
+ header{padding:12px}
+ .objectgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div>
+  <div class="brand">SOLAR<span> SCOPE</span></div>
+  <div class="muted">SOLAR SYSTEM EXPLORATION SIMULATOR</div>
+ </div>
+ <div class="status" id="engineStatus">LOADING...</div>
+</header>
+
+<main>
+
+<!-- PLAYBACK CONTROLS -->
+<div class="toolbar">
+ <button id="play">Ⅱ Pause</button>
+ <button id="now">NOW</button>
+
+ <label>Date
+  <input type="datetime-local" id="date">
+ </label>
+
+ <label>Speed
+  <select id="speed">
+   <option value="1" selected>1×</option>
+   <option value="60">60×</option>
+   <option value="3600">1 hour/sec</option>
+   <option value="86400">1 day/sec</option>
+   <option value="604800">1 week/sec</option>
+   <option value="2592000">30 days/sec</option>
+   <option value="31557600">1 year/sec</option>
+  </select>
+ </label>
+
+ <button id="minus">− Zoom</button>
+ <button id="plus">+ Zoom</button>
+ <button id="reset">Reset view</button>
+</div>
+
+<div class="workspace">
+
+<!-- MAIN VIEW -->
+<section>
+ <div class="canvasbox">
+  <canvas id="space"></canvas>
+  <div class="overlay">
+   <b>HELIOCENTRIC VIEW</b>
+   <small id="dateText"></small>
+  </div>
+ </div>
+
+ <p class="muted">
+  Drag to pan · Scroll to zoom · Click an object to inspect it
+ </p>
+
+ <!-- OBJECT TABS -->
+ <div class="panel">
+  <div class="tabs">
+   <button class="active" data-tab="planets">Planets</button>
+   <button data-tab="satellites">Satellites</button>
+   <button data-tab="asteroids">Asteroids</button>
+   <button data-tab="timeline">Timeline</button>
+  </div>
+
+  <div class="tabcontent active" id="tab-planets">
+   <div class="objectgrid" id="planetList"></div>
+  </div>
+
+  <div class="tabcontent" id="tab-satellites">
+   <div class="objectgrid" id="satelliteList"></div>
+  </div>
+
+  <div class="tabcontent" id="tab-asteroids">
+   <div class="objectgrid" id="asteroidList"></div>
+  </div>
+
+  <div class="tabcontent" id="tab-timeline">
+   <div class="tabs">
+    <button class="active" data-timeline="all">All events</button>
+    <button data-timeline="spacecraft">Spacecraft</button>
+    <button data-timeline="asteroids">Asteroids</button>
+   </div>
+   <div id="timelineList"></div>
+  </div>
+ </div>
+</section>
+
+<!-- INFORMATION PANEL -->
+<aside class="side">
+
+ <section class="panel">
+  <h2>SELECTED OBJECT</h2>
+  <h1 id="objectName">Earth</h1>
+  <p class="muted" id="objectType">Planet</p>
+  <div class="stats" id="objectStats"></div>
+  <hr>
+  <p class="muted" id="objectDescription"></p>
+ </section>
+
+ <section class="panel">
+  <h2>DISTANCE MEASUREMENT</h2>
+
+  <label>Measure distance from:</label>
+  
+  <select id="referenceObject" style="width:100%;margin-top:7px"></select>
+
+  <div class="stat" style="margin-top:9px">
+   <small>Distance between selected and reference object</small>
+   <b id="relativeDistance">—</b>
+  </div>
+  <p class="note" id="distanceNote">
+   Select another object to compare distances.
+  </p>
+ </section>
+
+ <section class="panel">
+  <h2>DISPLAY SETTINGS</h2>
+  <div class="stats">
+   <label><input type="checkbox" id="orbits" checked> Orbits</label>
+   <label><input type="checkbox" id="labels" checked> Labels</label>
+   <label><input type="checkbox" id="moons" checked> Moon</label>
+   <label><input type="checkbox" id="spacecraft" checked> Spacecraft</label>
+   <label><input type="checkbox" id="asteroids" checked> Asteroids</label>
+   <label><input type="checkbox" id="trails" checked> Flight paths</label>
+  </div>
+ </section>
+
+ <section class="panel">
+  <h2>SIMULATION</h2>
+  <div class="stats">
+   <div class="stat"><small>Date</small><b id="simDate">—</b></div>
+   <div class="stat"><small>Playback</small><b id="simSpeed">1×</b></div>
+   <div class="stat"><small>Visible objects</small><b id="count">—</b></div>
+   <div class="stat"><small>Reference</small><b>Heliocentric</b></div>
+  </div>
+ </section>
+
+ <section class="panel">
+  <h2>MODEL ACCURACY</h2>
+  <p class="note">
+   Planet positions use Astronomy Engine. Asteroid and comet positions
+   use approximate Keplerian orbital elements. Spacecraft paths are
+   historical-event reconstructions, not exact navigation ephemerides.
+  </p>
+  <p class="note">
+   Planet spacing and sizes are visually compressed or exaggerated.
+   Earth-orbiting and Moon-orbiting spacecraft are displayed with
+   enlarged local offsets so they can be seen.
+  </p>
+ </section>
+
+</aside>
+</div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/astronomy-engine/astronomy.browser.min.js"></script>
+
+<script>
+
+/* =========================================================
+   SOLAR SCOPE CONFIGURATION
+   EDIT THESE SETTINGS TO CUSTOMISE THE SIMULATION
+========================================================= */
+
+const CONFIG = {
+
+ // Initial simulation date. null = current date.
+ DEFAULT_DATE: null,
+
+ // Default playback speed.
+ DEFAULT_SPEED: 1,
+
+ // Initial zoom.
+ DEFAULT_ZOOM: 1,
+
+ // Zoom limits.
+ MIN_ZOOM: 0.2,
+ MAX_ZOOM: 6,
+
+ // Planet distance spacing.
+ PLANET_SPACING: 135,
+
+ // Extra distance spacing multiplier.
+ DISTANCE_MULTIPLIER: 1.0,
+
+ // Visual size of the Sun.
+ SUN_SIZE: 10,
+ 
+SUN_GLOW_SIZE: 180,
+SUN_GLOW_STRENGTH: 0.9,
+SUN_GLOW_DISTANCE: 3,
+SUN_GLOW_LAYERS: 2,
+SUN_GLOW_ELLIPSE_RATIO: 0.85,
+
+ // Show these when the page opens.
+ SHOW_ORBITS: true,
+ SHOW_LABELS: true,
+ SHOW_MOONS: true,
+ SHOW_SPACECRAFT: true,
+ SHOW_ASTEROIDS: true,
+ SHOW_TRAILS: true,
+
+ // Start animation automatically.
+ AUTOPLAY: true,
+
+ // Local orbit display sizes in pixels.
+ LOCAL_ORBIT_SIZE: 15,
+
+ // Spacecraft trail sample count.
+ TRAIL_SAMPLES: 350
+};
+
+/* =========================================================
+   APPLICATION DATA
+========================================================= */
+
+const DAY = 86400000;
+const AU_KM = 149597870.7;
+
+const $ = id => document.getElementById(id);
+const canvas = $("space");
+const ctx = canvas.getContext("2d");
+
+let simDate = CONFIG.DEFAULT_DATE
+ ? new Date(CONFIG.DEFAULT_DATE)
+ : new Date();
+
+let playing = CONFIG.AUTOPLAY;
+let lastFrame = performance.now();
+let zoom = CONFIG.DEFAULT_ZOOM;
+let panX = 0;
+let panY = 0;
+let selected = "Earth";
+let positions = {};
+let dragging = false;
+let dragMoved = false;
+let dragStart = {};
+let dragPan = {};
+
+const planets = [
+ {name:"Mercury",body:"Mercury",color:"#aaa49b",radius:2439.7,rotation:1407.6,revolution:87.969,tilt:.034,description:"The smallest planet. Mercury has a 3:2 spin-orbit resonance and almost no atmosphere."},
+ {name:"Venus",body:"Venus",color:"#dfbd87",radius:6051.8,rotation:-5832.5,revolution:224.701,tilt:177.36,description:"Venus has a thick carbon dioxide atmosphere and extreme surface temperatures. It rotates retrograde."},
+ {name:"Earth",body:"Earth",color:"#4b9be8",radius:6371,rotation:23.934,revolution:365.256,tilt:23.44,description:"Our home planet. Earth has liquid-water oceans and one natural satellite, the Moon."},
+ {name:"Mars",body:"Mars",color:"#d86f4d",radius:3389.5,rotation:24.623,revolution:686.98,tilt:25.19,description:"The red planet. Mars has two small moons, Phobos and Deimos."},
+ {name:"Jupiter",body:"Jupiter",color:"#d6ad83",radius:69911,rotation:9.925,revolution:4332.59,tilt:3.13,description:"The largest planet. Its enormous gravity influenced the Voyager missions and many other spacecraft."},
+ {name:"Saturn",body:"Saturn",color:"#e7d29b",radius:58232,rotation:10.7,revolution:10759.2,tilt:26.73,description:"A gas giant famous for its rings. Voyager 1 and 2 both performed Saturn flybys."},
+ {name:"Uranus",body:"Uranus",color:"#8bd7dc",radius:25362,rotation:-17.24,revolution:30688.5,tilt:97.77,description:"An ice giant that rotates almost on its side. Voyager 2 visited Uranus in 1986."},
+ {name:"Neptune",body:"Neptune",color:"#5579e8",radius:24622,rotation:16.11,revolution:60182,tilt:28.32,description:"A distant ice giant. Voyager 2 made the first and only close flyby of Neptune in 1989."},
+ {name:"Pluto",body:"Pluto",color:"#c6a88f",radius:1188.3,rotation:-153.3,revolution:90560,tilt:122.5,description:"A dwarf planet in the Kuiper belt. New Horizons flew past Pluto in 2015."}
+];
+
+/*
+ Approximate heliocentric orbital elements.
+ These are educational approximations, not precision ephemerides.
+*/
+
+const asteroids = [
+ {name:"Ceres",a:2.7675,e:.0758,i:10.594,O:80.305,w:73.597,M:95.989,epoch:"2000-01-01",period:1681.6,color:"#c9b9a4",description:"The largest object in the main asteroid belt and a dwarf planet."},
+ {name:"Vesta",a:2.361,e:.0887,i:7.14,O:103.8,w:150.9,M:151.2,epoch:"2000-01-01",period:1325.4,color:"#d5bca0",description:"A large differentiated asteroid visited by NASA's Dawn spacecraft."},
+ {name:"Apophis",a:.9224,e:.1912,i:3.34,O:204,w:126.4,M:0,epoch:"2020-01-01",period:323,color:"#e8a36f",description:"A near-Earth asteroid. Its close Earth approach in 2029 is an important observation opportunity."},
+ {name:"Bennu",a:1.1264,e:.2037,i:6.03,O:2.06,w:66.22,M:101.7,epoch:"2000-01-01",period:436.6,color:"#c7a77f",description:"A near-Earth asteroid sampled by NASA's OSIRIS-REx mission."},
+ {name:"Eros",a:1.458,e:.223,i:10.83,O:304.3,w:178.8,M:178.8,epoch:"2000-01-01",period:643,color:"#bca28a",description:"A near-Earth asteroid explored by the NEAR Shoemaker spacecraft."},
+ {name:"Halley's Comet",a:17.8,e:.967,i:162.26,O:58.42,w:111.33,M:0,epoch:"1986-02-09",period:27500,color:"#8ee9f0",description:"A famous periodic comet. Its orbit is highly elliptical and retrograde. Its next perihelion is expected around 2061."}
+];
+
+/* =========================================================
+   SPACECRAFT AND SATELLITE DATA
+========================================================= */
+
+const spacecraft = [
+ {
+  name:"Voyager 1",color:"#ffe17a",host:"Sun",type:"Interplanetary probe",
+  launch:"1977-09-05T12:56:01Z",
+  description:"NASA's Voyager 1 explored Jupiter and Saturn before continuing toward interstellar space.",
+  events:[
+   ["1977-09-05","Earth","Launch"],
+   ["1979-03-05","Jupiter","Jupiter flyby"],
+   ["1980-11-12","Saturn","Saturn flyby"],
+   ["2012-08-25","Interstellar space","Entered interstellar space"]
+  ]
+ },
+ {
+  name:"Voyager 2",color:"#ff9e79",host:"Sun",type:"Interplanetary probe",
+  launch:"1977-08-20T14:29:44Z",
+  description:"Voyager 2 visited all four giant planets: Jupiter, Saturn, Uranus and Neptune.",
+  events:[
+   ["1977-08-20","Earth","Launch"],
+   ["1979-07-09","Jupiter","Jupiter flyby"],
+   ["1981-08-25","Saturn","Saturn flyby"],
+   ["1986-01-24","Uranus","Uranus flyby"],
+   ["1989-08-25","Neptune","Neptune flyby"],
+   ["2018-11-05","Interstellar space","Entered interstellar space"]
+  ]
+ },
+ {
+  name:"New Horizons",color:"#b89aff",host:"Sun",type:"Interplanetary probe",
+  launch:"2006-01-19T19:00:00Z",
+  description:"NASA spacecraft that explored Pluto and the Kuiper Belt object Arrokoth.",
+  events:[
+   ["2006-01-19","Earth","Launch"],
+   ["2007-02-28","Jupiter","Jupiter gravity assist"],
+   ["2015-07-14","Pluto","Pluto flyby"],
+   ["2019-01-01","Arrokoth","Arrokoth flyby"]
+  ]
+ },
+ {
+  name:"Hubble",color:"#c8e4ff",host:"Earth",type:"Earth-orbiting telescope",
+  launch:"1990-04-24T00:00:00Z",
+  altitude:540,
+  speed:7.5,
+  period:95,
+  description:"The Hubble Space Telescope observes the universe from low Earth orbit. Its orbital period is approximately 95 minutes.",
+  events:[
+   ["1990-04-24","Earth","Hubble launch and deployment"],
+   ["1993-12-02","Earth","First servicing mission"],
+   ["2009-05-11","Earth","Final servicing mission"]
+  ]
+ },
+ {
+  name:"ISS",color:"#8de2bc",host:"Earth",type:"Earth-orbiting space station",
+  launch:"1998-11-20T00:00:00Z",
+  altitude:400,
+  speed:7.66,
+  period:92.7,
+  description:"The International Space Station is a permanently crewed research laboratory in low Earth orbit.",
+  events:[
+   ["1998-11-20","Earth","First ISS module launched"],
+   ["2000-11-02","Earth","First long-duration crew arrives"]
+  ]
+ },
+ {
+  name:"Chandrayaan-1",color:"#ffbd77",host:"Moon",type:"Indian lunar orbiter",
+  launch:"2008-10-22T00:52:11Z",
+  altitude:100,
+  speed:1.6,
+  period:118,
+  description:"India's first lunar mission. It mapped the Moon and contributed to the discovery of water-related signatures. The mission ended in 2009.",
+  events:[
+   ["2008-10-22","Earth","Launch from Sriharikota"],
+   ["2008-11-08","Moon","Lunar orbit insertion"],
+   ["2008-11-14","Moon","Moon Impact Probe deployment"],
+   ["2009-08-29","Moon","Mission communication lost"]
+  ]
+ },
+ {
+  name:"Chandrayaan-2 Orbiter",color:"#ff9dce",host:"Moon",type:"Indian lunar orbiter",
+  launch:"2019-07-22T09:13:00Z",
+  altitude:100,
+  speed:1.6,
+  period:118,
+  description:"ISRO's lunar orbiter continues to study the Moon. The Vikram lander separated in 2019; the orbiter remains a separate spacecraft.",
+  events:[
+   ["2019-07-22","Earth","Launch"],
+   ["2019-08-14","Earth","Trans-lunar injection"],
+   ["2019-08-20","Moon","Lunar orbit insertion"],
+   ["2019-09-02","Moon","Vikram lander separation"]
+  ]
+ },
+ {
+  name:"Chandrayaan-3",color:"#f0d48c",host:"Moon",type:"Lunar lander and rover mission",
+  launch:"2023-07-14T09:05:00Z",
+  description:"India's Chandrayaan-3 mission achieved a successful lunar soft landing on 23 August 2023. Vikram and Pragyan completed their planned surface operations.",
+  events:[
+   ["2023-07-14","Earth","Launch"],
+   ["2023-08-05","Moon","Lunar orbit insertion"],
+   ["2023-08-17","Moon","Lander module separation"],
+   ["2023-08-23","Moon","Vikram soft landing"],
+   ["2023-08-24","Moon","Pragyan rover deployment"]
+  ]
+ },
+ {
+  name:"Aditya-L1",color:"#ff8d61",host:"Sun",type:"Solar observatory",
+  launch:"2023-09-02T00:00:00Z",
+  description:"India's solar observatory placed in a halo orbit around the Sun-Earth L1 region.",
+  events:[
+   ["2023-09-02","Earth","Launch"],
+   ["2024-01-06","L1","Halo orbit insertion"]
+  ]
+ }
+];
+
+/* =========================================================
+   DATE AND POSITION FUNCTIONS
+========================================================= */
+
+function getBody(name,date){
+ return Astronomy.HelioState(Astronomy.Body[name],date);
+}
+
+function vector(body,date){
+ const v=getBody(body,date);
+ return {x:v.x,y:v.y,z:v.z,vx:v.vx,vy:v.vy,vz:v.vz};
+}
+
+function magnitude(p){
+ return Math.hypot(p.x,p.y,p.z);
+}
+
+function speedOf(p){
+ return Math.hypot(p.vx||0,p.vy||0,p.vz||0)*AU_KM/86400;
+}
+
+function asteroidPosition(a,date){
+ const epoch=new Date(a.epoch+"T00:00:00Z");
+ const days=(date-epoch)/DAY;
+ const n=2*Math.PI/a.period;
+ const M=(a.M||0)*Math.PI/180+n*days;
+
+ let E=M;
+ for(let i=0;i<12;i++){
+  E-=(E-a.e*Math.sin(E)-M)/(1-a.e*Math.cos(E));
+ }
+
+ const x=a.a*(Math.cos(E)-a.e);
+ const y=a.a*Math.sqrt(1-a.e*a.e)*Math.sin(E);
+
+ const O=a.O*Math.PI/180;
+ const w=a.w*Math.PI/180;
+ const inc=a.i*Math.PI/180;
+
+ return {
+  x:(Math.cos(O)*Math.cos(w)-Math.sin(O)*Math.sin(w)*Math.cos(inc))*x+
+    (-Math.cos(O)*Math.sin(w)-Math.sin(O)*Math.cos(w)*Math.cos(inc))*y,
+  y:(Math.sin(O)*Math.cos(w)+Math.cos(O)*Math.sin(w)*Math.cos(inc))*x+
+    (-Math.sin(O)*Math.sin(w)+Math.cos(O)*Math.cos(w)*Math.cos(inc))*y,
+  z:Math.sin(w)*Math.sin(inc)*x+Math.cos(w)*Math.sin(inc)*y
+ };
+}
+
+function dateAt(s){
+ return new Date(s+"T00:00:00Z");
+}
+
+function missionEvents(m){
+ return m.events.map(e=>({
+  date:dateAt(e[0]),target:e[1],label:e[2],mission:m.name
+ }));
+}
+
+/* =========================================================
+   SPACECRAFT POSITION RECONSTRUCTION
+========================================================= */
+
+function getMissionWaypoints(m){
+ const points=[];
+
+ m.events.forEach(e=>{
+  const date=dateAt(e[0]);
+  const target=e[1];
+
+  let p;
+
+  if(["Earth","Jupiter","Saturn","Uranus","Neptune","Pluto"].includes(target)){
+   p=vector(target,date);
+  }else if(target==="Moon"){
+   p=vector("Earth",date);
+   p.x+=.00257;
+  }else if(target==="Arrokoth"){
+   p=vector("Pluto",date);
+  }else if(target==="Interstellar space"){
+   p=vector("Neptune",date);
+   p.x+=1;
+  }else if(target==="L1"){
+   p=vector("Earth",date);
+   p.x+=.01;
+  }else{
+   p=vector("Earth",date);
+  }
+
+  points.push({
+   t:date.getTime(),date,
+   x:p.x,y:p.y,z:p.z,
+   target,label:e[2]
+  });
+ });
+
+ return points;
+}
+
+spacecraft.forEach(m=>{
+ m.waypoints=getMissionWaypoints(m);
+});
+
+function interpolatePath(a,b,t,curve){
+ const dx=b.x-a.x;
+ const dy=b.y-a.y;
+ const dz=b.z-a.z;
+ const length=Math.hypot(dx,dy)||1;
+
+ const nx=-dy/length;
+ const ny=dx/length;
+ const bend=Math.sin(Math.PI*t)*curve;
+
+ return {
+  x:a.x+dx*t+nx*bend,
+  y:a.y+dy*t+ny*bend,
+  z:a.z+dz*t+Math.sin(Math.PI*t)*curve*.3
+ };
+}
+
+function missionPosition(m,date){
+ const time=date.getTime();
+ const w=m.waypoints;
+
+ if(time<w[0].t)return null;
+
+ for(let i=0;i<w.length-1;i++){
+  const a=w[i],b=w[i+1];
+
+  if(time>=a.t&&time<=b.t){
+   const t=(time-a.t)/(b.t-a.t);
+   return interpolatePath(a,b,t,i%2===0?.35:-.3);
+  }
+ }
+
+ const a=w[w.length-2];
+ const b=w[w.length-1];
+ const days=(time-b.t)/DAY;
+ const total=(b.t-a.t)/DAY;
+
+ return {
+  x:b.x+(b.x-a.x)/total*days,
+  y:b.y+(b.y-a.y)/total*days,
+  z:b.z+(b.z-a.z)/total*days
+ };
+}
+
+/* =========================================================
+   LOCAL EARTH AND MOON ORBITING OBJECTS
+========================================================= */
+
+function localSatellitePosition(m,date,hostPosition){
+ const elapsed=(date-new Date(m.launch))/60000;
+ const period=m.period||100;
+ const angle=elapsed/period*2*Math.PI;
+
+ // Local orbit is exaggerated for visibility.
+ let orbitAU;
+
+ if(m.host==="Earth"){
+  orbitAU=(m.altitude||400)/AU_KM;
+ }else{
+  orbitAU=((m.altitude||100)+1737)/AU_KM;
+ }
+
+ const p={
+  x:hostPosition.x+orbitAU*Math.cos(angle),
+  y:hostPosition.y+orbitAU*Math.sin(angle),
+  z:hostPosition.z+orbitAU*.2*Math.sin(angle*.5)
+ };
+
+ return {
+  ...p,
+  local:true,
+  host:m.host,
+  localAngle:angle,
+  orbitPixels:m.host==="Earth"?CONFIG.LOCAL_ORBIT_SIZE:CONFIG.LOCAL_ORBIT_SIZE*.75
+ };
+}
+
+/* =========================================================
+   COMPUTE ALL OBJECT POSITIONS
+========================================================= */
+
+function compute(){
+ positions={};
+
+ planets.forEach(d=>{
+  try{
+   const p=vector(d.body,simDate);
+   positions[d.name]={
+    ...p,r:magnitude(p),
+    speed:speedOf(p),
+    type:"Planet",def:d
+   };
+  }catch(e){}
+ });
+
+ // Earth's Moon: simplified orbital model.
+ if(positions.Earth){
+  const earth=positions.Earth;
+  const days=(simDate-new Date("2000-01-01T12:00:00Z"))/DAY;
+  const angle=days*2*Math.PI/27.321661;
+
+  const moon={
+   x:earth.x+.00257*Math.cos(angle),
+   y:earth.y+.00257*Math.sin(angle),
+   z:earth.z+.0002*Math.sin(angle)
+  };
+
+  positions.Moon={
+   ...moon,r:magnitude(moon),
+   speed:1.022,type:"Moon",
+   def:{
+    color:"#cbd2dc",radius:1737.4,
+    rotation:655.7,revolution:27.321661,
+    description:"Earth's natural satellite. This is a simplified orbital model."
+   }
+  };
+ }
+
+ asteroids.forEach(a=>{
+  const p=asteroidPosition(a,simDate);
+  positions[a.name]={
+   ...p,r:magnitude(p),speed:0,
+   type:"Asteroid / Comet",def:a,
+   approximate:true
+  };
+ });
+
+ // Spacecraft.
+ spacecraft.forEach(m=>{
+  const launch=new Date(m.launch);
+  if(simDate<launch)return;
+
+  let p;
+
+  if(m.host==="Earth"){
+   p=localSatellitePosition(m,simDate,positions.Earth);
+  }else if(m.host==="Moon"){
+   p=localSatellitePosition(m,simDate,positions.Moon);
+  }else{
+   p=missionPosition(m,simDate);
+  }
+
+  if(p){
+   positions[m.name]={
+    ...p,r:magnitude(p),
+    speed:m.speed||0,
+    type:m.type,def:m,
+    spacecraft:true
+   };
+  }
+ });
+}
+
+/* =========================================================
+   CANVAS VIEW
+========================================================= */
+
+function distanceScale(r){
+ return (24+Math.log1p(Math.max(0,r))*CONFIG.PLANET_SPACING)
+ *CONFIG.DISTANCE_MULTIPLIER;
+}
+
+function project(p){
+ const cx=canvas.clientWidth/2+panX;
+ const cy=canvas.clientHeight/2+panY;
+
+ if(p.local&&p.host&&positions[p.host]){
+  const host=project(positions[p.host]);
+  const angle=p.localAngle||0;
+  const size=p.orbitPixels||15;
+
+  return {
+   x:host.x+Math.cos(angle)*size,
+   y:host.y+Math.sin(angle)*size*.7
+  };
+ }
+
+ const angle=Math.atan2(p.y,p.x);
+ const s=distanceScale(p.r)*zoom;
+
+ return {
+  x:cx+Math.cos(angle)*s,
+  y:cy+Math.sin(angle)*s*.78
+ };
+}
+
+function objectRadius(name,p){
+ if(p.type==="Planet"){
+  return Math.max(3.5,Math.min(11,Math.log10(p.def.radius)*2.1));
+ }
+ if(p.spacecraft)return 5;
+ if(p.type==="Asteroid / Comet")return name==="Halley's Comet"?4:2.8;
+ return 3.5;
+}
+
+function drawOrbit(r,color="#293d59"){
+ const cx=canvas.clientWidth/2+panX;
+ const cy=canvas.clientHeight/2+panY;
+ const s=distanceScale(r)*zoom;
+
+ ctx.beginPath();
+ ctx.ellipse(cx,cy,s,s*.78,0,0,Math.PI*2);
+ ctx.strokeStyle=color;
+ ctx.lineWidth=1;
+ ctx.setLineDash([3,6]);
+ ctx.stroke();
+ ctx.setLineDash([]);
+}
+
+function drawLocalOrbit(hostName,size,color){
+ const p=positions[hostName];
+ if(!p)return;
+
+ const q=project(p);
+ ctx.beginPath();
+ ctx.ellipse(q.x,q.y,size,size*.7,0,0,Math.PI*2);
+ ctx.strokeStyle=color;
+ ctx.lineWidth=1;
+ ctx.setLineDash([2,3]);
+ ctx.stroke();
+ ctx.setLineDash([]);
+}
+
+function drawMissionPath(m){
+ if(!CONFIG.SHOW_TRAILS||!$("trails").checked)return;
+
+ const now=simDate.getTime();
+ const w=m.waypoints;
+
+ if(now<w[0].t)return;
+
+ ctx.beginPath();
+ let started=false;
+
+ for(let i=0;i<CONFIG.TRAIL_SAMPLES;i++){
+  const t=w[0].t+(now-w[0].t)*i/(CONFIG.TRAIL_SAMPLES-1);
+  const p=missionPosition(m,new Date(t));
+  if(!p)continue;
+
+  const q=project(p);
+
+  if(!started){
+   ctx.moveTo(q.x,q.y);
+   started=true;
+  }else{
+   ctx.lineTo(q.x,q.y);
+  }
+ }
+
+ ctx.strokeStyle=m.color;
+ ctx.lineWidth=2;
+ ctx.setLineDash([5,4]);
+ ctx.stroke();
+ ctx.setLineDash([]);
+
+ w.forEach(point=>{
+  if(point.t>now)return;
+  const q=project(point);
+
+  ctx.beginPath();
+  ctx.arc(q.x,q.y,4,0,Math.PI*2);
+  ctx.fillStyle=m.color;
+  ctx.fill();
+
+  if($("labels").checked){
+   ctx.fillStyle=m.color;
+   ctx.font="10px Arial";
+   ctx.fillText(point.label,q.x+6,q.y-6);
+  }
+ });
+}
+
+function drawSunGlow(x, y, sunRadius) {
+  const size = CONFIG.SUN_GLOW_SIZE * zoom;
+  const strength = CONFIG.SUN_GLOW_STRENGTH;
+  const layers = CONFIG.SUN_GLOW_LAYERS;
+  const ellipseRatio = CONFIG.SUN_GLOW_ELLIPSE_RATIO;
+
+  ctx.save();
+
+  for (let i = layers; i >= 1; i--) {
+    const factor = i / layers;
+    const radius = size * factor;
+
+    const gradient = ctx.createRadialGradient(
+      x, y, sunRadius * 0.5,
+      x, y, radius
+    );
+
+    gradient.addColorStop(0, `rgba(255,255,210,${strength * 0.25})`);
+    gradient.addColorStop(0.2, `rgba(255,190,60,${strength * 0.18})`);
+    gradient.addColorStop(0.55, `rgba(255,110,20,${strength * 0.07})`);
+    gradient.addColorStop(1, "rgba(255,70,0,0)");
+
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.ellipse(
+      x, y,
+      radius,
+      radius * ellipseRatio,
+      0, 0, Math.PI * 2
+    );
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function draw(){
+ const w=canvas.clientWidth;
+ const h=canvas.clientHeight;
+ if(!w||!h)return;
+
+ ctx.clearRect(0,0,w,h);
+ ctx.fillStyle="#030711";
+ ctx.fillRect(0,0,w,h);
+
+ // Background stars.
+ for(let i=0;i<240;i++){
+  const x=(i*137.5)%w;
+  const y=(i*79.7)%h;
+  ctx.fillStyle=`rgba(180,210,255,${.15+(i%5)*.09})`;
+  ctx.fillRect(x,y,i%19===0?2:1,i%19===0?2:1);
+ }
+
+ const cx=w/2+panX;
+ const cy=h/2+panY;
+
+ // Sun.
+ const glow=ctx.createRadialGradient(cx,cy,2,cx,cy,45);
+ drawSunGlow(cx, cy, CONFIG.SUN_SIZE);
+ glow.addColorStop(0,"#fff9c8");
+ glow.addColorStop(.2,"#ffc65a");
+ glow.addColorStop(1,"#ff9d2100");
+
+ ctx.fillStyle=glow;
+ ctx.beginPath();
+ ctx.arc(cx,cy,40,0,Math.PI*2);
+ ctx.fill();
+
+ ctx.fillStyle="#fff0a5";
+ ctx.beginPath();
+ ctx.arc(cx,cy,CONFIG.SUN_SIZE,0,Math.PI*2);
+ ctx.fill();
+
+ // Planet and asteroid orbit guides.
+ if($("orbits").checked){
+  planets.forEach(d=>{
+   if(positions[d.name])drawOrbit(positions[d.name].r);
+  });
+
+  asteroids.forEach(a=>{
+   if(positions[a.name]&&$("asteroids").checked){
+    drawOrbit(positions[a.name].r,"#51453b");
+   }
+  });
+ }
+
+ // Earth and Moon local orbit rings.
+ if($("moons").checked){
+  drawLocalOrbit("Earth",CONFIG.LOCAL_ORBIT_SIZE,"#687f9e");
+ }
+ if($("spacecraft").checked){
+  spacecraft.filter(m=>m.host==="Earth"||m.host==="Moon")
+   .forEach(m=>{
+    const host=positions[m.host];
+    if(host)drawLocalOrbit(m.host,m.host==="Earth"?CONFIG.LOCAL_ORBIT_SIZE:CONFIG.LOCAL_ORBIT_SIZE*.75,m.color+"88");
+   });
+ }
+
+ // Interplanetary spacecraft paths.
+ if($("spacecraft").checked){
+  spacecraft.filter(m=>m.host==="Sun").forEach(drawMissionPath);
+ }
+
+ // Planets.
+ planets.forEach(d=>{
+  const p=positions[d.name];
+  if(!p)return;
+
+  const q=project(p);
+  const r=objectRadius(d.name,p);
+
+  ctx.beginPath();
+  ctx.arc(q.x,q.y,r,0,Math.PI*2);
+  ctx.fillStyle=d.color;
+  ctx.fill();
+
+  ctx.strokeStyle=selected===d.name?"white":"#ffffff55";
+  ctx.lineWidth=selected===d.name?2:1;
+  ctx.stroke();
+
+  if(d.name==="Saturn"){
+   ctx.beginPath();
+   ctx.ellipse(q.x,q.y,r+5,(r+5)*.4,-.25,0,Math.PI*2);
+   ctx.strokeStyle="#d8c69a";
+   ctx.lineWidth=2;
+   ctx.stroke();
+  }
+
+  if($("labels").checked){
+   ctx.fillStyle="#d0def0";
+   ctx.font="11px Arial";
+   ctx.fillText(d.name,q.x+r+4,q.y-5);
+  }
+ });
+
+ // Moon.
+ if(positions.Moon&&$("moons").checked){
+  const q=project(positions.Moon);
+
+  ctx.beginPath();
+  ctx.arc(q.x,q.y,4,0,Math.PI*2);
+  ctx.fillStyle="#cbd2dc";
+  ctx.fill();
+
+  if($("labels").checked){
+   ctx.fillStyle="#cbd2dc";
+   ctx.font="10px Arial";
+   ctx.fillText("Moon",q.x+6,q.y-5);
+  }
+ }
+
+ // Asteroids and comets.
+ if($("asteroids").checked){
+  asteroids.forEach(a=>{
+   const p=positions[a.name];
+   if(!p)return;
+
+   const q=project(p);
+   const r=objectRadius(a.name,p);
+
+   ctx.beginPath();
+   ctx.arc(q.x,q.y,r,0,Math.PI*2);
+   ctx.fillStyle=a.color;
+   ctx.fill();
+
+   if($("labels").checked){
+    ctx.fillStyle=a.color;
+    ctx.font="10px Arial";
+    ctx.fillText(a.name,q.x+5,q.y);
+   }
+  });
+ }
+
+ // Satellites and spacecraft.
+ if($("spacecraft").checked){
+  spacecraft.forEach(m=>{
+   const p=positions[m.name];
+   if(!p)return;
+
+   const q=project(p);
+
+   ctx.save();
+   ctx.translate(q.x,q.y);
+   ctx.rotate(Math.PI/4);
+   ctx.fillStyle=m.color;
+   ctx.fillRect(-5,-5,10,10);
+   ctx.restore();
+
+   if($("labels").checked){
+    ctx.fillStyle=m.color;
+    ctx.font="10px Arial";
+    ctx.fillText(m.name,q.x+8,q.y-7);
+   }
+  });
+ }
+
+ $("count").textContent=Object.keys(positions).length+1;
+}
+
+/* =========================================================
+   OBJECT INFORMATION AND DISTANCE COMPARISON
+========================================================= */
+
+function format(n,d=2){
+ return Number.isFinite(n)?n.toFixed(d):"—";
+}
+
+function relativeDistance(a,b){
+ if(!a||!b)return null;
+ return Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
+}
+
+function formatDistance(au){
+ if(!Number.isFinite(au))return "—";
+ if(au<.00001)return (au*AU_KM).toFixed(2)+" km";
+ if(au<.01)return (au*AU_KM).toLocaleString(undefined,{maximumFractionDigits:0})+" km";
+ return format(au,5)+" AU";
+}
+
+function renderReferenceList(){
+ const names=["Sun",...Object.keys(positions)];
+ const select=$("referenceObject");
+ const previous=select.value;
+
+ select.innerHTML=names.map(n=>
+  `<option value="${n}">${n}</option>`
+ ).join("");
+
+ select.value=names.includes(previous)?previous:"Sun";
+}
+
+function renderInfo(){
+ const p=positions[selected];
+
+ if(!p){
+  $("objectName").textContent=selected;
+  $("objectType").textContent="Not launched at selected date";
+  $("objectStats").innerHTML="";
+  $("objectDescription").textContent=
+   "This spacecraft or satellite has not launched at the selected simulation date.";
+  updateRelativeDistance();
+  return;
+ }
+
+ const d=p.def||{};
+ $("objectName").textContent=selected;
+ $("objectType").textContent=p.type+(p.approximate?" · approximate orbit":"");
+
+ let stats=[
+  ["Distance from Sun",formatDistance(p.r)],
+  ["Orbital speed",p.speed?format(p.speed,3)+" km/s":"Not available"],
+  ["Rotation period",d.rotation?
+   format(Math.abs(d.rotation),2)+" hours"+(d.rotation<0?" retrograde":""):
+   "Not available"],
+  ["Revolution period",d.revolution?
+   format(d.revolution,2)+" days":"Not available"],
+  ["Diameter",d.radius?
+   (d.radius*2).toLocaleString()+" km":"Not available"],
+  ["Axial tilt",d.tilt?format(d.tilt,2)+"°":"Not available"],
+  ["Orbit altitude",d.altitude?d.altitude+" km":"Not available"],
+  ["Orbital period",d.period?d.period+" minutes":""]
+ ];
+
+ $("objectStats").innerHTML=stats
+ .filter(x=>x[1]!=="")
+ .map(([a,b])=>
+  `<div class="stat"><small>${a}</small><b>${b}</b></div>`
+ ).join("");
+
+ $("objectDescription").textContent=d.description||"Solar System object.";
+
+ updateRelativeDistance();
+}
+
+function updateRelativeDistance(){
+ const ref=$("referenceObject").value;
+ const a=positions[selected];
+
+ let b;
+
+ if(ref==="Sun"){
+  b={x:0,y:0,z:0};
+ }else{
+  b=positions[ref];
+ }
+
+ if(!a||!b){
+  $("relativeDistance").textContent="Not available";
+  $("distanceNote").textContent="One or both objects do not exist at the selected simulation date.";
+  return;
+ }
+
+ if(selected===ref){
+  $("relativeDistance").textContent="0 km";
+ }else{
+  const dist=relativeDistance(a,b);
+  $("relativeDistance").textContent=formatDistance(dist);
+ }
+
+ $("distanceNote").textContent=
+  "Calculated from the current simulated heliocentric positions. Local satellite orbits are simplified.";
+}
+
+/* =========================================================
+   OBJECT LISTS AND TABS
+========================================================= */
+
+function makeButton(name,color){
+ return `<button data-name="${name}">
+  <i class="dot" style="background:${color}"></i>${name}
+ </button>`;
+}
+
+function fillLists(){
+ $("planetList").innerHTML=
+  planets.map(p=>makeButton(p.name,p.color)).join("")+
+  makeButton("Moon","#cbd2dc");
+
+ $("satelliteList").innerHTML=
+  spacecraft.map(m=>makeButton(m.name,m.color)).join("");
+
+ $("asteroidList").innerHTML=
+  asteroids.map(a=>makeButton(a.name,a.color)).join("");
+
+ document.querySelectorAll("[data-name]").forEach(b=>{
+  b.onclick=()=>{
+   selected=b.dataset.name;
+   renderInfo();
+   draw();
+  };
+ });
+}
+
+function setupTabs(){
+ document.querySelectorAll("[data-tab]").forEach(b=>{
+  b.onclick=()=>{
+   document.querySelectorAll("[data-tab]").forEach(x=>x.classList.remove("active"));
+   document.querySelectorAll(".tabcontent").forEach(x=>x.classList.remove("active"));
+   b.classList.add("active");
+   $("tab-"+b.dataset.tab).classList.add("active");
+  };
+ });
+}
+
+/* =========================================================
+   TIMELINE AND JUMP TO EVENT
+========================================================= */
+
+let timelineFilter="all";
+
+function allEvents(){
+ let events=[];
+
+ spacecraft.forEach(m=>{
+  m.events.forEach(e=>{
+   events.push({
+    date:dateAt(e[0]),
+    name:m.name,
+    target:e[1],
+    label:e[2],
+    category:"spacecraft",
+    color:m.color
+   });
+  });
+ });
+
+ asteroids.forEach(a=>{
+  if(a.name==="Halley's Comet"){
+   events.push({
+    date:dateAt("1986-02-09"),
+    name:a.name,target:"Sun",
+    label:"Perihelion passage (approximate date)",
+    category:"asteroids",color:a.color
+   });
+   events.push({
+    date:dateAt("2061-07-28"),
+    name:a.name,target:"Sun",
+    label:"Expected next perihelion (approximate)",
+    category:"asteroids",color:a.color
+   });
+  }
+ });
+
+ return events.sort((a,b)=>a.date-b.date);
+}
+
+function renderTimeline(){
+ const now=simDate.getTime();
+
+ const events=allEvents().filter(e=>
+  timelineFilter==="all"||e.category===timelineFilter
+ );
+
+ $("timelineList").innerHTML=events.map((e,i)=>{
+  const passed=e.date.getTime()<=now;
+
+  return `
+  <div class="event" style="border-color:${e.color}">
+   <button data-jump="${i}">JUMP TO</button>
+   <b style="color:${e.color}">${e.name}</b><br>
+   ${e.label}<br>
+   <small>${e.date.toISOString().slice(0,10)} · ${e.target}
+   ${passed?" · reached":" · future event"}</small>
+  </div>`;
+ }).join("");
+
+ $("timelineList").querySelectorAll("[data-jump]").forEach((b,i)=>{
+  b.onclick=()=>{
+   const e=events[i];
+   simDate=new Date(e.date);
+   selected=e.name;
+   updateAll();
+   window.scrollTo({top:0,behavior:"smooth"});
+  };
+ });
+}
+
+function setupTimelineTabs(){
+ document.querySelectorAll("[data-timeline]").forEach(b=>{
+  b.onclick=()=>{
+   document.querySelectorAll("[data-timeline]").forEach(x=>x.classList.remove("active"));
+   b.classList.add("active");
+   timelineFilter=b.dataset.timeline;
+   renderTimeline();
+  };
+ });
+}
+
+/* =========================================================
+   PLAYBACK AND DATE CONTROLS
+========================================================= */
+
+function toLocalInput(date){
+ const d=new Date(date.getTime()-date.getTimezoneOffset()*60000);
+ return d.toISOString().slice(0,16);
+}
+
+function updateAll(){
+ compute();
+ renderReferenceList();
+ $("dateText").textContent=simDate.toISOString().replace("T"," ").slice(0,19)+" UTC";
+ $("simDate").textContent=simDate.toISOString().slice(0,10);
+ $("date").value=toLocalInput(simDate);
+ $("simSpeed").textContent=$("speed").selectedOptions[0].textContent;
+ renderInfo();
+ renderTimeline();
+ draw();
+}
+
+$("play").onclick=()=>{
+ playing=!playing;
+ $("play").textContent=playing?"Ⅱ Pause":"▶ Play";
+ lastFrame=performance.now();
+};
+
+$("now").onclick=()=>{
+ simDate=new Date();
+ updateAll();
+};
+
+$("date").onchange=e=>{
+ if(e.target.value){
+  simDate=new Date(e.target.value);
+  updateAll();
+ }
+};
+
+$("plus").onclick=()=>{
+ zoom=Math.min(zoom*1.2,CONFIG.MAX_ZOOM);
+ draw();
+};
+
+$("minus").onclick=()=>{
+ zoom=Math.max(zoom/1.2,CONFIG.MIN_ZOOM);
+ draw();
+};
+
+$("reset").onclick=()=>{
+ zoom=CONFIG.DEFAULT_ZOOM;
+ panX=0;
+ panY=0;
+ draw();
+};
+
+$("referenceObject").onchange=updateRelativeDistance;
+
+[
+ "orbits","labels","moons","spacecraft","asteroids","trails"
+].forEach(id=>{
+ $(id).onchange=draw;
+});
+
+/* =========================================================
+   MOUSE AND TOUCH INTERACTION
+========================================================= */
+
+canvas.addEventListener("pointerdown",e=>{
+ dragging=true;
+ dragMoved=false;
+ dragStart={x:e.clientX,y:e.clientY};
+ dragPan={x:panX,y:panY};
+ canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener("pointermove",e=>{
+ if(!dragging)return;
+
+ const dx=e.clientX-dragStart.x;
+ const dy=e.clientY-dragStart.y;
+
+ if(Math.abs(dx)+Math.abs(dy)>4)dragMoved=true;
+
+ panX=dragPan.x+dx;
+ panY=dragPan.y+dy;
+ draw();
+});
+
+canvas.addEventListener("pointerup",e=>{
+ if(!dragging)return;
+
+ if(!dragMoved){
+  const rect=canvas.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+
+  let best=null;
+  let bestDistance=22;
+
+  Object.entries(positions).forEach(([name,p])=>{
+   const q=project(p);
+   const dist=Math.hypot(q.x-x,q.y-y);
+
+   if(dist<bestDistance){
+    best=name;
+    bestDistance=dist;
+   }
+  });
+
+  if(best){
+   selected=best;
+   renderInfo();
+   draw();
+  }
+ }
+
+ dragging=false;
+});
+
+canvas.addEventListener("wheel",e=>{
+ e.preventDefault();
+ zoom=Math.max(CONFIG.MIN_ZOOM,Math.min(CONFIG.MAX_ZOOM,
+  zoom*(e.deltaY<0?1.1:.9)
+ ));
+ draw();
+},{passive:false});
+
+/* =========================================================
+   RESIZE AND MAIN LOOP
+========================================================= */
+
+function resize(){
+ const dpr=Math.min(devicePixelRatio||1,2);
+ const rect=canvas.getBoundingClientRect();
+
+ canvas.width=Math.round(rect.width*dpr);
+ canvas.height=Math.round(rect.height*dpr);
+
+ ctx.setTransform(dpr,0,0,dpr,0,0);
+ draw();
+}
+
+window.addEventListener("resize",resize);
+
+function loop(time){
+ const dt=Math.min((time-lastFrame)/1000,.25);
+ lastFrame=time;
+
+ if(playing){
+  const rate=Number($("speed").value);
+  simDate=new Date(simDate.getTime()+dt*rate*1000);
+  updateAll();
+ }
+
+ requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   INITIALISE
+========================================================= */
+
+function init(){
+ $("speed").value=String(CONFIG.DEFAULT_SPEED);
+
+ $("orbits").checked=CONFIG.SHOW_ORBITS;
+ $("labels").checked=CONFIG.SHOW_LABELS;
+ $("moons").checked=CONFIG.SHOW_MOONS;
+ $("spacecraft").checked=CONFIG.SHOW_SPACECRAFT;
+ $("asteroids").checked=CONFIG.SHOW_ASTEROIDS;
+ $("trails").checked=CONFIG.SHOW_TRAILS;
+
+ $("play").textContent=playing?"Ⅱ Pause":"▶ Play";
+
+ setupTabs();
+ setupTimelineTabs();
+ fillLists();
+
+ if(typeof Astronomy==="undefined"||!Astronomy.HelioState){
+  $("engineStatus").textContent="ASTRONOMY ENGINE NOT LOADED";
+  $("engineStatus").style.color="#ff8b78";
+  return;
+ }
+
+ $("engineStatus").textContent="● EPHEMERIS READY";
+
+ updateAll();
+ resize();
+ requestAnimationFrame(loop);
+}
+
+init();
+
+</script>
+</body>
+</html>
